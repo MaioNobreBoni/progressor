@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Progressor — Tarefas em Fatias</title>
+  <style>
+    :root{
+      --bg: #0f1115;
+      --panel: #141820;
+      --muted: #a1a8b3;
+      --text: #e8ecf1;
+      --brand: #6ee7ff;
+      --brand-2: #7c5cff;
+      --ok: #44d07b;
+      --warn: #ffcc66;
+      --danger: #ff667a;
+      --ring: #2a3242;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 16px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;}
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 600px at 10% -10%, #182030 0%, transparent 60%),
+                  radial-gradient(1000px 500px at 110% -10%, #1a1630 0%, transparent 60%),
+                  var(--bg);
+      color:var(--text);
+    }
+    header{
+      position:sticky; top:0; z-index:10; backdrop-filter: blur(8px);
+      background: linear-gradient(180deg, rgba(10,12,16,.75), rgba(10,12,16,.35));
+      border-bottom:1px solid #222733;
+    }
+    .wrap{max-width:1100px; margin:0 auto; padding:20px;}
+    h1{font-size: clamp(22px, 3.5vw, 34px); margin:6px 0 10px 0; letter-spacing:.2px}
+    .sub{color:var(--muted); font-size:14px}
+
+    .panels{display:grid; grid-template-columns: 1fr; gap:16px; margin-top:16px}
+    @media (min-width: 900px){ .panels{grid-template-columns: 1.1fr .9fr} }
+
+    .card{background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01)); border:1px solid #232a36; border-radius: var(--radius); box-shadow: var(--shadow)}
+    .card .head{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; border-bottom:1px solid #222733}
+    .card .body{padding:14px 16px}
+
+    .row{display:flex; gap:10px; flex-wrap:wrap}
+    .row > * {flex:1}
+    .row .shrink{flex:0}
+    label{font-size:12px; color:var(--muted); display:block; margin-bottom:6px}
+    input[type="text"], input[type="number"], select{
+      width:100%; background:#0f131b; border:1px solid #2a3242; color:var(--text);
+      border-radius: 12px; padding:12px 12px; outline:none; transition:.2s border;
+    }
+    input:focus, select:focus{border-color:#3d4d6a}
+
+    button{
+      background: linear-gradient(180deg, #1b2330, #121823);
+      border:1px solid #293246; color:var(--text); border-radius:12px; padding:10px 14px; cursor:pointer;
+      transition:.15s transform, .2s background, .2s border-color; box-shadow: 0 4px 12px rgba(0,0,0,.2);
+    }
+    button:hover{transform: translateY(-1px); border-color:#3a4966}
+    button.primary{background: linear-gradient(180deg, #2a3d58, #1c2a3e); border-color:#3b5b8a}
+    button.ghost{background: transparent; border-color:#2a3242}
+    button.danger{border-color:#52343a; background:linear-gradient(180deg, #2a1a20, #1c1216);}
+    .btn-sm{padding:6px 10px; border-radius:10px; font-size:12px}
+
+    .progress{height:12px; background:#0e131b; border:1px solid #2a3242; border-radius:999px; overflow:hidden; position:relative}
+    .progress > .bar{height:100%; width:0%; background: linear-gradient(90deg, var(--brand), var(--brand-2)); transition: width .25s ease}
+    .progress-label{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; font-size:13px; color:var(--muted)}
+
+    .task{border:1px solid #212837; border-radius:14px; padding:12px; margin-bottom:10px; background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01))}
+    .task-top{display:flex; justify-content:space-between; align-items:center; gap:8px}
+    .task-title{font-weight:600; font-size:14px}
+    .task-meta{color:var(--muted); font-size:12px}
+    .chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
+    .chip{font-size:11px; padding:4px 8px; border-radius:999px; border:1px solid #263045; background:#0e131b}
+
+    .slices{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
+    .slice{
+      width:22px; height:22px; display:grid; place-items:center; font-size:12px; border-radius:6px; border:1px solid #2a3242; cursor:pointer; user-select:none;
+      background:#0f131b; color:var(--muted);
+    }
+    .slice.done{background: linear-gradient(180deg, #203026, #16231b); color:#b9ffd4; border-color:#2c593d}
+
+    .lists{display:grid; grid-template-columns: 1fr; gap:16px}
+    @media (min-width: 900px){ .lists{grid-template-columns: 1fr 1fr} }
+
+    .muted{color:var(--muted)}
+    .empty{padding:12px; border:1px dashed #2a3242; border-radius:12px; color:var(--muted); text-align:center}
+
+    .footer{padding:18px; text-align:center; color:var(--muted); font-size:12px}
+    a{color:var(--brand)}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Progressor <span class="sub">— Quebra em fatias, cumpre no dia, fecha o mês.</span></h1>
+      <div class="panels">
+        <div class="card">
+          <div class="head"><strong>Progresso do Dia</strong><span id="todayStats" class="muted"></span></div>
+          <div class="body">
+            <div class="progress-label"><span>Hoje</span><span id="todayPct">0%</span></div>
+            <div class="progress"><div id="todayBar" class="bar"></div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="head"><strong>Progresso do Mês</strong><span id="monthStats" class="muted"></span></div>
+          <div class="body">
+            <div class="progress-label"><span>Este mês</span><span id="monthPct">0%</span></div>
+            <div class="progress"><div id="monthBar" class="bar"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap" style="margin-top:16px">
+    <div class="card">
+      <div class="head"><strong>Nova tarefa/meta</strong><span class="muted">Salvo localmente (localStorage)</span></div>
+      <div class="body">
+        <div class="row">
+          <div>
+            <label>Título</label>
+            <input id="title" type="text" placeholder="Ex: Estudar Álgebra / Modelar NPC / Ler 20p" />
+          </div>
+          <div class="shrink" style="min-width:140px">
+            <label>Fatias (1–64)</label>
+            <input id="slices" type="number" min="1" max="64" value="8" />
+          </div>
+          <div class="shrink" style="min-width:160px">
+            <label>Escopo</label>
+            <select id="scope">
+              <option value="today">Afazeres de hoje</option>
+              <option value="month">Meta do mês</option>
+              <option value="both">Hoje + Mês</option>
+              <option value="backlog">Backlog (decido depois)</option>
+            </select>
+          </div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <div class="shrink">
+            <button class="btn-sm ghost" data-preset="4">x4</button>
+            <button class="btn-sm ghost" data-preset="8">x8</button>
+            <button class="btn-sm ghost" data-preset="12">x12</button>
+            <button class="btn-sm ghost" data-preset="16">x16</button>
+            <button class="btn-sm ghost" data-preset="32">x32</button>
+          </div>
+          <div style="flex:1"></div>
+          <div class="shrink"><button id="add" class="primary">Adicionar</button></div>
+        </div>
+      </div>
+    </div>
+
+    <section class="lists" style="margin-top:16px">
+      <div class="card" id="todayCard">
+        <div class="head"><strong>Afazeres de Hoje</strong>
+          <div class="row" style="gap:6px">
+            <button class="btn-sm ghost" id="clearToday">Limpar concluídos</button>
+            <button class="btn-sm ghost" id="newDay">Fechar dia (zera barras do dia)</button>
+          </div>
+        </div>
+        <div class="body" id="todayList"></div>
+      </div>
+
+      <div class="card" id="monthCard">
+        <div class="head"><strong>Metas do Mês</strong>
+          <div class="row" style="gap:6px">
+            <button class="btn-sm ghost" id="clearMonth">Limpar concluídos</button>
+            <button class="btn-sm ghost" id="newMonth">Novo mês (zera barras do mês)</button>
+          </div>
+        </div>
+        <div class="body" id="monthList"></div>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:16px">
+      <div class="head"><strong>Backlog</strong><span class="muted">Tarefas guardadas para decidir o escopo depois</span></div>
+      <div class="body" id="backlogList"></div>
+    </section>
+
+    <div class="footer">Feito com ❤ • Dica: clique nas quadradinhas de fatia para marcar/desmarcar. / Exportar dados: <a href="#" id="export">baixar JSON</a> • <label style="margin-left:8px">Importar: <input type="file" id="importFile" accept="application/json"/></label></div>
+  </main>
+
+  <script>
+    // --- Pequeno store ---
+    const storeKey = 'progressor.v1';
+    const todayKey = () => {
+      const d = new Date();
+      return d.toISOString().slice(0,10); // YYYY-MM-DD
+    };
+    const monthKey = () => {
+      const d = new Date();
+      return d.toISOString().slice(0,7); // YYYY-MM
+    };
+
+    const initialState = () => ({
+      today: { key: todayKey(), tasks: [] },
+      month: { key: monthKey(), goals: [] },
+      backlog: []
+    });
+
+    function load(){
+      try{
+        const raw = localStorage.getItem(storeKey);
+        if(!raw) return initialState();
+        const data = JSON.parse(raw);
+        // reseta escopos se mudou o dia/mês
+        if(data.today?.key !== todayKey()) data.today = { key: todayKey(), tasks: [] };
+        if(data.month?.key !== monthKey()) data.month.key = monthKey();
+        return data;
+      }catch(e){ return initialState(); }
+    }
+    function save(){ localStorage.setItem(storeKey, JSON.stringify(state)); }
+
+    let state = load();
+
+    // --- Helpers ---
+    const $ = (sel, root=document) => root.querySelector(sel);
+    const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+    const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+
+    function uid(){ return Math.random().toString(36).slice(2,9); }
+
+    function mkTask({title, slices, scope}){
+      return { id: uid(), title, total: slices, done: 0, scope, createdAt: Date.now() };
+    }
+
+    // --- Rendering ---
+    function render(){
+      renderLists();
+      renderProgress();
+      save();
+    }
+
+    function renderLists(){
+      const tList = $('#todayList'); tList.innerHTML = '';
+      const mList = $('#monthList'); mList.innerHTML = '';
+      const bList = $('#backlogList'); bList.innerHTML = '';
+
+      if(state.today.tasks.length===0){ tList.append(empty('Nada por aqui. Bora adicionar algo pro dia?')); }
+      state.today.tasks.forEach(task => tList.append(taskEl(task, 'today')));
+
+      if(state.month.goals.length===0){ mList.append(empty('Sem metas ainda. Pensa no mês e manda bala.')); }
+      state.month.goals.forEach(task => mList.append(taskEl(task, 'month')));
+
+      if(state.backlog.length===0){ bList.append(empty('Backlog vazio.')); }
+      state.backlog.forEach(task => bList.append(taskEl(task, 'backlog')));
+    }
+
+    function empty(text){
+      const div = document.createElement('div');
+      div.className = 'empty';
+      div.textContent = text;
+      return div;
+    }
+
+    function taskEl(task, container){
+      const el = document.createElement('div');
+      el.className = 'task';
+      const pct = task.total ? Math.round((task.done / task.total) * 100) : 0;
+
+      el.innerHTML = `
+        <div class="task-top">
+          <div>
+            <div class="task-title">${escapeHtml(task.title)}</div>
+            <div class="task-meta">${task.done}/${task.total} fatias — ${pct}%</div>
+          </div>
+          <div class="row" style="gap:6px; justify-content:flex-end">
+            ${container!=='today'? `<button class="btn-sm" data-move="today">Enviar pro dia</button>`: ''}
+            ${container!=='month'? `<button class="btn-sm" data-move="month">Enviar pro mês</button>`: ''}
+            ${container!=='backlog'? `<button class="btn-sm" data-move="backlog">Backlog</button>`: ''}
+            <button class="btn-sm" data-plus>+1</button>
+            <button class="btn-sm" data-minus>-1</button>
+            <button class="btn-sm danger" data-del>Excluir</button>
+          </div>
+        </div>
+        <div class="progress" style="margin-top:10px"><div class="bar" style="width:${pct}%"></div></div>
+        <div class="chips">
+          <span class="chip">Escopo: ${container}</span>
+          <span class="chip">Criado: ${new Date(task.createdAt).toLocaleDateString()}</span>
+        </div>
+        <div class="slices" aria-label="Fatias">${Array.from({length: task.total}, (_,i)=>`<div class="slice ${i<task.done?'done':''}" data-index="${i}">${i+1}</div>`).join('')}</div>
+      `;
+
+      // Interações
+      el.addEventListener('click', (e)=>{
+        const t = e.target;
+        if(t.matches('[data-plus]')){ task.done = clamp(task.done+1, 0, task.total); render(); }
+        if(t.matches('[data-minus]')){ task.done = clamp(task.done-1, 0, task.total); render(); }
+        if(t.matches('[data-del]')){ removeTask(task.id); render(); }
+        if(t.matches('[data-move]')){ moveTask(task.id, container, t.getAttribute('data-move')); render(); }
+        if(t.classList.contains('slice')){
+          const idx = Number(t.getAttribute('data-index'));
+          // Clique alterna até o índice selecionado
+          if(idx < task.done){ task.done = idx; } else { task.done = idx+1; }
+          task.done = clamp(task.done, 0, task.total);
+          render();
+        }
+      });
+
+      return el;
+    }
+
+    function escapeHtml(s){
+      return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m]));
+    }
+
+    function removeTask(id){
+      state.today.tasks = state.today.tasks.filter(t=>t.id!==id);
+      state.month.goals = state.month.goals.filter(t=>t.id!==id);
+      state.backlog = state.backlog.filter(t=>t.id!==id);
+    }
+
+    function findContainerById(id){
+      if(state.today.tasks.find(t=>t.id===id)) return 'today';
+      if(state.month.goals.find(t=>t.id===id)) return 'month';
+      if(state.backlog.find(t=>t.id===id)) return 'backlog';
+      return null;
+    }
+
+    function pickArr(container){
+      if(container==='today') return state.today.tasks;
+      if(container==='month') return state.month.goals;
+      return state.backlog;
+    }
+
+    function moveTask(id, from, to){
+      if(from===to) return;
+      const arrFrom = pickArr(from);
+      const idx = arrFrom.findIndex(t=>t.id===id);
+      if(idx<0) return;
+      const [task] = arrFrom.splice(idx,1);
+      task.scope = to;
+      const arrTo = pickArr(to);
+      arrTo.unshift(task);
+    }
+
+    function addTask(){
+      const title = $('#title').value.trim();
+      const slices = clamp(Number($('#slices').value||8), 1, 64);
+      const scope = $('#scope').value;
+      if(!title) { alert('Coloca um título, mano!'); return; }
+      const task = mkTask({title, slices, scope});
+      if(scope==='today') state.today.tasks.unshift(task);
+      else if(scope==='month') state.month.goals.unshift(task);
+      else if(scope==='both') { state.today.tasks.unshift({...task, id: uid(), scope:'today'}); state.month.goals.unshift({...task, id: uid(), scope:'month'}); }
+      else state.backlog.unshift(task);
+      $('#title').value='';
+      render();
+    }
+
+    function renderProgress(){
+      // Dia: soma das fatias concluídas / soma das fatias planejadas no dia
+      const td = state.today.tasks;
+      const todayTotal = td.reduce((a,t)=>a+t.total,0);
+      const todayDone = td.reduce((a,t)=>a+t.done,0);
+      const tpct = todayTotal? Math.round((todayDone/todayTotal)*100) : 0;
+      $('#todayBar').style.width = tpct + '%';
+      $('#todayPct').textContent = tpct + '%';
+      $('#todayStats').textContent = `${todayDone}/${todayTotal} fatias`;
+
+      // Mês
+      const mg = state.month.goals;
+      const monthTotal = mg.reduce((a,t)=>a+t.total,0);
+      const monthDone = mg.reduce((a,t)=>a+t.done,0);
+      const mpct = monthTotal? Math.round((monthDone/monthTotal)*100) : 0;
+      $('#monthBar').style.width = mpct + '%';
+      $('#monthPct').textContent = mpct + '%';
+      $('#monthStats').textContent = `${monthDone}/${monthTotal} fatias`;
+    }
+
+    // --- Buttons & actions ---
+    $('#add').addEventListener('click', addTask);
+    $$('button[data-preset]').forEach(b=> b.addEventListener('click', ()=>{
+      $('#slices').value = Number(b.getAttribute('data-preset').slice(1));
+    }));
+
+    $('#clearToday').addEventListener('click', ()=>{
+      state.today.tasks = state.today.tasks.filter(t=>t.done < t.total);
+      render();
+    });
+    $('#clearMonth').addEventListener('click', ()=>{
+      state.month.goals = state.month.goals.filter(t=>t.done < t.total);
+      render();
+    });
+
+    $('#newDay').addEventListener('click', ()=>{
+      if(!confirm('Fechar o dia? Isso zera as barras do dia (as tarefas permanecem).')) return;
+      state.today.key = todayKey();
+      // Zera progresso apenas das tarefas do dia
+      state.today.tasks.forEach(t=> t.done = 0);
+      render();
+    });
+
+    $('#newMonth').addEventListener('click', ()=>{
+      if(!confirm('Iniciar novo mês? Isso zera o progresso das metas do mês.')) return;
+      state.month.key = monthKey();
+      state.month.goals.forEach(t=> t.done = 0);
+      render();
+    });
+
+    // Export / Import
+    $('#export').addEventListener('click', (e)=>{
+      e.preventDefault();
+      const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `progressor-${todayKey()}.json`;
+      a.click();
+      setTimeout(()=>URL.revokeObjectURL(url), 1000);
+    });
+
+    $('#importFile').addEventListener('change', async (ev)=>{
+      const file = ev.target.files?.[0];
+      if(!file) return;
+      try{
+        const text = await file.text();
+        const data = JSON.parse(text);
+        if(!data || !data.today || !data.month) throw new Error('Arquivo inválido');
+        state = data; render();
+      }catch(err){ alert('Falha ao importar: ' + err.message); }
+      ev.target.value = '';
+    });
+
+    // Primeira renderização
+    render();
+  </script>
+</body>
+</html>
